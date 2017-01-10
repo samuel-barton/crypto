@@ -277,26 +277,4 @@ int main(int ac, char** av)
         printf("\n");
     }
     printf("number of ones: %d\tnumber of zeros: %d\n", num_one, num_zero);
-/*
-    printf("Temp\n");
-
-    int num_zero = 0;
-    int num_one = 0;
-    int i,j;
-    for (i = 0; i < 100; i++)
-    {
-        for (j = 0; j < 80; j++) 
-        {
-            int t = temp();
-            if (t > 0)
-                num_one++;
-            else
-                num_zero++;
-            printf("%d", t);
-        }
-    
-        printf("\n");
-    }
-    printf("number of ones: %d\tnumber of zeros: %d\n", num_one, num_zero);
-*/
 }
