@@ -252,29 +252,92 @@ int temp()
     } 
 }
 
-int main(int ac, char** av)
+/*=============================================================================
+ *
+ * Function name: print
+ *
+ * Parameters: N - the number of line to print
+ *
+ * Returns: void 
+ *
+ * Description: print out N binary digits to the screen
+ *
+ *===========================================================================*/
+void print(int N)
 {
-    printf("clock slip in microseconds.\n");
-
     int i;
    
     int num_zero = 0;
     int num_one = 0;
  
-    for (i = 0; i < 10000; i++)
+    for (i = 0; i < N; i++)
     {
-        int j;
-        for (j = 0; j < 80; j++)
-        {
-            int dif = gen_rand();
-            if (dif > 0)
-                num_one++;
-            else
-                num_zero++;
-            printf("%d", dif);
-        }
+        int dif = gen_rand();
+        if (dif > 0)
+            num_one++;
+        else
+            num_zero++;
+        printf("%d", dif);
 
-        printf("\n");
+        if (i % 80 == 0)
+            printf("\n");
     }
+
     printf("number of ones: %d\tnumber of zeros: %d\n", num_one, num_zero);
+}
+
+int chiSquared()
+{
+
+}
+
+/*=============================================================================
+ *
+ * Function name: fileWrite
+ *
+ * Parameters: int N                - the number of random numbers to write out
+ *             condt char* filename - the name of the file to write to
+ *
+ * Returns: void
+ *
+ * Description: Write out N binary digits to the specified file.
+ *
+ *===========================================================================*/
+void fileWrite(int N, const char* filename)
+{
+    FILE* output = fopen(filename, "w");
+    if (output == NULL)
+    {
+        printf("Error: %d\n", errno);
+        return;
+    }
+
+    int i;
+
+    for (i = 0; i < N; i++)
+    {
+        int dif = gen_rand();
+
+        fprintf(output, "%d", dif);
+    }
+
+    fclose(output);
+}
+
+int main(int ac, char** av)
+{
+
+    if (ac >= 2)
+    {
+        int N = atoi(av[1]);
+        if (ac == 3)
+        {
+            char* filename = av[2];
+            fileWrite(N, filename);
+        }
+        else
+            print(N);
+    }
+    else
+        printf("Program usage: ./random N [filename]\n");
 }
