@@ -43,113 +43,7 @@
  *
  *===========================================================================*/
 
-static int fd = 0;
-static float cur_temp = 0;
 static int cur_dif = 0;
-
-
-/*=============================================================================
- *
- * Function name: serialport_init
- *
- * Parameters: const char* serialport - the name of the port we connect to
- *             int baud - connection speed
- *
- * Returns: int - file descriptor representing serial port connection
- *
- * Description: This method establishes the connection to the arduino's serial
- *              port. 
- *
- *              Both this method, and the serialport_read_until() method came
- *              from https://github.com/todbot/arduino-serial.
- *
- *===========================================================================*/
-int serialport_init(const char* serialport, int baud)
-{
-    struct termios toptions;
-    int fd;
-    
-    fd = open(serialport, O_RDWR | O_NONBLOCK );
-    
-    if (fd == -1)  {
-        perror("serialport_init: Unable to open port ");
-        return -1;
-    }
-
-    if (tcgetattr(fd, &toptions) < 0) {
-        perror("serialport_init: Couldn't get term attributes");
-        return -1;
-    }
-    speed_t brate = B9600; // let you override switch below if needed
-    cfsetispeed(&toptions, brate);
-    cfsetospeed(&toptions, brate);
-
-    // 8N1
-    toptions.c_cflag &= ~PARENB;
-    toptions.c_cflag &= ~CSTOPB;
-    toptions.c_cflag &= ~CSIZE;
-    toptions.c_cflag |= CS8;
-    // no flow control
-    toptions.c_cflag &= ~CRTSCTS;
-
-    toptions.c_cflag |= CREAD | CLOCAL;  // turn on READ & ignore ctrl lines
-    toptions.c_iflag &= ~(IXON | IXOFF | IXANY); // turn off s/w flow ctrl
-
-    toptions.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // make raw
-    toptions.c_oflag &= ~OPOST; // make raw
-
-    // see: http://unixwiz.net/techtips/termios-vmin-vtime.html
-    toptions.c_cc[VMIN]  = 0;
-    toptions.c_cc[VTIME] = 0;
-    
-    tcsetattr(fd, TCSANOW, &toptions);
-    if( tcsetattr(fd, TCSAFLUSH, &toptions) < 0) {
-        perror("init_serialport: Couldn't set term attributes");
-        return -1;
-    }
-
-    return fd;
-}
-
-/*=============================================================================
- *
- * Function name: serialport_read_until
- *
- * Parameters: int fd - the file descriptor of the serial port we read from
- *             char* buf - the buffer we read into
- *             char until - stop character
- *             int buf_max - the size of the buffer
- *             int timeout - the max wait time for a response
- *
- * Returns: int - status
- *
- * Description: This function handles reading in data from the serial console
- *              of the arduino.
- *
- *===========================================================================*/
-int serialport_read_until(int fd, char* buf, char until, int buf_max, int timeout)
-{
-    char b[1];  // read expects an array, so we give it a 1-byte array
-    int i=0;
-    do {
-        int n = read(fd, b, 1);  // read a char at a time
-        if( n==-1) return -1;    // couldn't read
-        if( n==0 ) {
-            usleep(1);  // wait 1 msec try again
-            timeout--;
-            if( timeout==0 ) return -2;
-            continue;
-        }
-#ifdef SERIALPORTDEBUG  
-        printf("serialport_read_until: i=%d, n=%d b='%c'\n",i,n,b[0]); // debug
-#endif
-        buf[i] = b[0];
-        i++;
-    } while( b[0] != until && i < buf_max && timeout>0 );
-
-    buf[i] = 0;  // null terminate the string
-    return 0;
-}
 
 /*=============================================================================
  *
@@ -170,7 +64,7 @@ int time_dif()
     struct timeval start, stop;
 
     gettimeofday(&start, NULL);
-    // sleep for half a second
+    // sleep for 10 microseconds
     usleep(10);
     gettimeofday(&stop, NULL);
 
@@ -187,7 +81,6 @@ int time_dif()
         return 1;
     }
 }
-
 
 /*=============================================================================
  *
@@ -210,48 +103,7 @@ int gen_rand()
 {
     return time_dif() ^ (random()&01);
 }
-
-/*=============================================================================
- *
- * Function name: temp
- *
- * Parameters: none
- *
- * Returns: int (0 if same temp as before, 1 otherwise)
- *
- * Description: This method is used to create a random sequence of bits. It 
- * gets the current temperature from an arduino, and compares it to the last 
- * temperature it received. If the temps are the same, then the function will 
- * return a zero. Otherwise, it will return a 1. Since there is no way to 
- * predetermine the temperature fluctuation, there is no way to get a seed for
- * the sequence.
- *
- * This function uses library code for accessing the arduino's serial console.
- * see the function headers for the attribution.
- *
- *===========================================================================*/
-int temp()
-{
-    if (fd == 0)   
-        fd = serialport_init("/dev/cu.usbmodemFD121", 9600);
-
-    char buffer[32];
-
-    int n = serialport_read_until(fd, buffer, '\n', sizeof(buffer), 5e6);
-
-    if (n < 0)
-        fputs("read failed!\n", stderr);
-
-    float tmp = atof(buffer);
-    if (cur_temp == tmp)
-        return 0;
-    else
-    {
-        cur_temp = tmp;
-        return 1;
-    } 
-}
-
+ 
 /*=============================================================================
  *
  * Function name: print
@@ -286,9 +138,115 @@ void print(int N)
     printf("number of ones: %d\tnumber of zeros: %d\n", num_one, num_zero);
 }
 
-int chiSquared()
-{
 
+/*=============================================================================
+ *
+ * Function: itoa
+ *
+ * Parameters: int n
+ *
+ * Returns: char* - the string representation of the integer i passed in.
+ *
+ * description: this function generates the string representation of the int
+ *              it is passed.
+ *
+ *===========================================================================*/
+char* itoa(int n)
+{
+    int num_chars = 0;
+    if (n > 0)
+        num_chars = ceil(log(n));
+    char* result = malloc(num_chars + 1);
+
+    sprintf(result, "%d,", n);
+
+    return result;
+}
+
+unsigned long factorial(int n)
+{
+    unsigned long result = 1L;
+    while (n > 0)
+    {
+        result *= (n--);
+    }
+
+    return result;
+}
+
+unsigned long choose(int n, int k)
+{
+    return factorial(n)/(factorial(k)*factorial(n - k));
+}
+
+double binProb(int n, int k)
+{
+    return choose(n,k)*pow(0.5,n);
+}
+
+double calcChiI(int expected, int got)
+{
+    double res = 0.0;
+    if (expected != 0)
+        res = pow((expected - got),2)/expected;
+
+    return res;
+}
+
+/*=============================================================================
+ *
+ * Function: genBins
+ *
+ * Parameters: int N            - the number of runs to do
+ *             char* filename   - the file to write out the values to
+ *
+ * Returns: char* - the string representation of the integer i passed in.
+ *
+ * description: this function generates the string representation of the int
+ *              it is passed.
+ *
+ *===========================================================================*/
+double chiSquared(int N, const char* filename)
+{
+    // Pick a number of binary digits to test with
+    int num_bits = 20;
+
+    // generate the expected values for each bin
+    int* expected_vals = malloc(sizeof(int)*num_bits + 1);
+    // Setup the bins where we will need (the number of bins will be num_bits)
+    int* bins = malloc(sizeof(int)*num_bits + 1);
+
+    int i;
+    double sum = 0.0;
+    for (i = 0; i <= num_bits; i++)
+    {
+        expected_vals[i] = (int)round((N*binProb(num_bits,i)));
+        bins[i] = 0;
+    }
+
+    // Take N passes
+    for (i = 0; i < N; i++)
+    {
+        /* on each pass, sum num_bits randomly generated bits and increment
+         * the appropriate bin. */
+        int j;
+        int sum = 0;
+        for (j = 0; j < num_bits; j++)
+            sum += gen_rand();
+
+        bins[sum]++;
+    }
+
+    double chi_squared = 0;
+    // print out the results
+    for (i = 0; i <= num_bits; i++)
+    {
+        double tmp = calcChiI(expected_vals[i],bins[i]);
+        //printf("%d, exp %d, got %d\n",i,expected_vals[i],bins[i]);
+        chi_squared += tmp;
+    }
+
+    return chi_squared;
 }
 
 /*=============================================================================
@@ -306,6 +264,9 @@ int chiSquared()
 void fileWrite(int N, const char* filename)
 {
     FILE* output = fopen(filename, "w");
+
+    char* buf = malloc(sizeof(char)*4096);
+
     if (output == NULL)
     {
         printf("Error: %d\n", errno);
@@ -314,26 +275,93 @@ void fileWrite(int N, const char* filename)
 
     int i;
 
+    int buf_index = 1;
     for (i = 0; i < N; i++)
     {
         int dif = gen_rand();
+        int sum = 0;
+        int j;
+        for (j = 1; j <= 20; j++)
+            sum += gen_rand();
+        char* tmp = itoa(sum);
 
-        fprintf(output, "%d", dif);
+        int length = strlen(tmp);
+        int index = 0;
+        while (index < length)
+        {
+            if (buf_index % 4096 == 0)
+            {
+                fwrite(buf, 4096, 1, output); 
+                buf_index = 0;
+            }
+        
+            buf[buf_index++] = tmp[index++];
+        }
+
+        free(tmp);
     }
+
+        if (buf_index % 4096 != 0)
+        {
+           fwrite(buf, (buf_index + 1), 1, output); 
+        }
+
+    free(buf);
 
     fclose(output);
 }
 
+void frequency(int N)
+{
+    int num_1 = 0;
+    int num_0 = 0;
+
+    for (int i = 0; i < N; i++)
+        (gen_rand() == 1) ? num_1++ : num_0++;
+
+    double freq_1 = 100*(num_1 + 0.0)/N;
+    double freq_0 = 100*(num_0 + 0.0)/N;
+
+    printf("Statistics\n");
+    printf("-------------------------------------------\n");
+    printf("number of 1's: %d\tnumber of 0's: %d\tN: %d\n", num_1,num_0,N);
+    printf("frequency of 1's: %f percent \tfrequency of 0's: %f percent\n",
+           freq_1,freq_0);
+}
+
+void writeBits(int N, char* filename)
+{
+    FILE* output = fopen(filename, "w");
+
+    // create a buffer to hold 51 lines worth of text
+    char* buf = malloc(sizeof(char)*4080);
+
+    int i;
+}
+
 int main(int ac, char** av)
 {
-
     if (ac >= 2)
     {
         int N = atoi(av[1]);
         if (ac == 3)
         {
-            char* filename = av[2];
-            fileWrite(N, filename);
+            char* test = av[2];
+
+            if (strcmp(test, "chi") == 0)
+            {
+                int i;
+                for(i = 0; i < 10; i++)
+                {
+                    double sum = 0;
+                    sum = chiSquared(N, test);
+                    printf("Thechi^2 over %d runs is %f\n",N,sum);
+                }
+            }
+            else if (strcmp(test,"freq") == 0)
+                frequency(N);
+            else
+                fileWrite(N, test);    
         }
         else
             print(N);
