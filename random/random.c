@@ -42,7 +42,6 @@
  *              random sequence when using a 100 microsecond wait time. 
  *
  *===========================================================================*/
-
 static int cur_dif = 0;
 
 /*=============================================================================
@@ -68,10 +67,6 @@ int time_dif()
     usleep(10);
     gettimeofday(&stop, NULL);
 
-    /* the "average" time taken by the system to complete the sleep operation
-     * is 145 microseconds. So comparing the sleep time to the 
-     * average gives us a somewhat even and seemingly random stream of ones and
-     * zeroes. */
     int tmp = stop.tv_usec - start.tv_usec;
     if (cur_dif == tmp)
         return 0;
@@ -158,7 +153,7 @@ char* itoa(int n)
         num_chars = ceil(log(n));
     char* result = malloc(num_chars + 1);
 
-    sprintf(result, "%d,", n);
+    sprintf(result, "%d", n);
 
     return result;
 }
@@ -297,7 +292,7 @@ void fileWrite(int N, const char* filename)
         
             buf[buf_index++] = tmp[index++];
         }
-
+        buf[buf_index++] = ',';
         free(tmp);
     }
 
@@ -339,6 +334,75 @@ void writeBits(int N, char* filename)
     int i;
 }
 
+void threePer(int N)
+{
+    // total number of permutations
+    int permutations = 8;
+
+    // probability for each possible case
+    double probability = 0.125;
+
+    // for a given N, generate the expected counts for each permutation
+    double expected_counts[8]; 
+    for (int i = 0; i < 8; i++)
+        expected_counts[i] = probability*N;
+
+    // provide the possible permutations
+    char* three_permutations[8] = {"000",
+                                   "001", 
+                                   "010", 
+                                   "011", 
+                                   "100", 
+                                   "101",
+                                   "110",
+                                   "111"};
+
+    // create an array to hold ten runs of the permutation counts for this N
+    int perm_counts[10][8];
+
+    // create a string to hold the current permutation
+    char* current_per = malloc(4*sizeof(char));
+
+    for (int a = 0; a < 10; a++)
+    {
+        for (int i = 0; i < N; i++)
+        {
+            // create the new permutation
+            for (int j = 0; j < 3; j++)
+            {
+                current_per[j] = ((gen_rand() == 0) ? '0' : '1');
+            }
+            current_per[3] = '\0';
+            // update the correct count
+            for (int k = 0; k < 8; k++)
+            {
+                if (strcmp(three_permutations[k], current_per) == 0)
+                    perm_counts[a][k]++;
+            }
+        }
+    }
+    free(current_per);
+
+    // Run a chi-squared analysis on our data
+    double chi_squared_values[10];
+
+    for (int i = 0; i < 10; i++)
+    {
+        double local_chi_squared = 0.0;
+        for (int j = 0; j < 8; j++)
+        {
+            local_chi_squared += calcChiI(expected_counts[j],
+                                          perm_counts[i][j]);
+        }
+        chi_squared_values[i] = local_chi_squared;
+    }
+
+    for (int i = 0; i < 10; i++)
+    {
+        printf("%d %f\n",N, chi_squared_values[i]);
+    }
+}
+
 int main(int ac, char** av)
 {
     if (ac >= 2)
@@ -360,6 +424,8 @@ int main(int ac, char** av)
             }
             else if (strcmp(test,"freq") == 0)
                 frequency(N);
+            else if (strcmp(test,"perm") == 0)
+                threePer(N);
             else
                 fileWrite(N, test);    
         }
