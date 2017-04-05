@@ -1,32 +1,53 @@
-\documentclass[24pt, a0paper, landscape]{tikzposter}
+\documentclass[24pt, landscape]{tikzposter}
+
+\tikzposterlatexaffectionproofoff
+
 \usepackage[utf8]{inputenc}
 \usepackage{tikz}
 \usetikzlibrary{positioning}
 \usepackage{listings}
-\usepackage{wrapfig}
+\usepackage{graphicx}
 
 \tikzset{node/.style={minimum size=1cm,inner sep=2pt},}
+\usetheme{Basic}
+\usecolorstyle{Default}
 
 \title{Making Random --- Cryptography and the Generation of Random Sequences}
 \author{Samuel Barton, Dr. David Briggs}
 \institute{University of Southern Maine}
- 
-\usetheme{Basic}
-\usecolorstyle{Default}
+\titlegraphic{\includegraphics{../img/usm.png}}
+
+\makeatletter
+\renewcommand\TP@maketitle{%
+    \begin{minipage}{0.1\linewidth}
+       \hspace*{-20cm} \@titlegraphic
+    \end{minipage}
+	\hfill
+   \begin{minipage}{0.8\linewidth}
+        \centering
+	    \vspace*{-0cm}{\hspace*{-15cm}
+		{\color{titlefgcolor}
+        {\bfseries \Huge \sc \@title \par}}}
+        \vspace*{1em}\hspace*{-12cm}
+        {\huge \@author \par}
+        \vspace*{1em}\hspace*{-12cm}
+        {\LARGE \@institute}
+    \end{minipage}
+}
+\makeatother
  
 \begin{document}
 
-\maketitle
+\maketitle[titletotopverticalspace=1cm]
 
 \begin{columns}
-
 \column{0.7}
 	\block{Background}
 	{
-It is surprisingly difficult to efficiently create sequences of numbers mathematicians and scientists regard as random, either by processes in the world, or algorithmically in software, yet many statistical experiments, cryptographic procedures, and computer games require randomly chosen values.  The branch of  cryptography dedicated to the generation of pseudorandom, or if possible genuinely random, sequences arose to address the need for vast quantities of values that are as random as possible. \\
+It is surprisingly difficult to efficiently create sequences of numbers mathematicians and scientists regard as random, either by processes in the world, or algorithmically in software, yet many statistical experiments, cryptographic procedures, and computer games require randomly chosen values.  The branch of cryptography dedicated to the generation of pseudorandom, or if possible genuinely random, sequences arose to address the need for vast quantities of values that are as random as possible. \\
 
 \begin{minipage}{0.35\textwidth}
-One example of where random numbers are needed is the creation of keys for secured communication. The to the right demonstrates this nicely. The protocol being shown there is RSA, where two end users generate private keys using (hopefully) random numbers, and then generate a public key using the key of a third party which both users have access to. The public key, when combined with either users private key, can decrypt the message. If a fourth party were to determine the sequence of ``random'' numbers used to generate either users' private key, and use said sequence to recreate that key, then he or she would be able to intercept or modify any communications by the effected user, and also impersonate them at will.
+One example of where random numbers are needed is the creation of keys for secured, confidential communication. The diagram to the right demonstrates this nicely. The protocol being shown there is RSA, where two end users generate private keys using (hopefully) random numbers, and then generate a public key using the key of a third party which both users have access to. The public key, when combined with either users private key, can decrypt the message. If an attacker were to determine the sequence of ``random'' numbers, then he or she might recreate the key and intercept the messages, modify them, or impersonate either user.
 \end{minipage}
 \begin{minipage}{0.35\textwidth}\
 \begin{center}
@@ -34,65 +55,74 @@ One example of where random numbers are needed is the creation of keys for secur
 		\node [node] (1) {$\mathrm{User}_1$};
 		\node [node] (2) [right = 25cm of 1]{$\mathrm{User}_2$};
 		\node [node] (3) [above right = 2.5cm and 12cm of 1]{Proxy};
-		\node [node] (4) [color=red,below right = 5cm and 11.25cm of 1]{Attacker};
+		\node [node] (4) [color=red,below right = 3cm and 11.25cm of 1]{Attacker};
 		\draw [label=ultra thick,<->](1) edge (2);
 		\draw [ultra thick,->](1) edge (3);
 		\draw [ultra thick,<-](3) edge (2);
-		\draw [color=red,dashed,ultra thick,<-,bend left=25](2) edge (4);
-		\draw [color=red,dashed,ultra thick,<-,bend right=25](1) edge (4);
+		\draw [color=red,dashed,ultra thick,<-,bend left=15](2) edge (4);
+		\draw [color=red,dashed,ultra thick,<-,bend right=15](1) edge (4);
 	\end{tikzpicture}
 \end{center}
 \end{minipage}
 	}
-\block{Why Use Such a Slow method to generate random numbers?}
+\block{How the Algorithm Works}
 {
-If we could generate random numbers using simply mathematical methods, then we would not even consider using a function like this which can at best generate $10^5 \frac{\mathrm{bits}}{\mathrm{second}}$, which is 10,000 times slower than the mathematical methods. Unfortunately, we cannot create truly random sequences using deterministic functions, i.e. functions that will generate the same results given the smae inputs. \\
+The algorithm utilizes the behavior of modern operating systems to generate random bits by putting the process to sleep for 10 microseconds, and then comparing the actual number of microseconds slept to the expected amount. The reason why this works for generating ``random'' bits is that modern operating systems do not wake processes exactly when they request. This is due to process scheduling. The algorithm uses the randomness in actual sleep time to generate each bit. 
 \\
-The interesting thing this algorithm does is utilize the behavior of modern operating systems, where putting a process to sleep for some amount of time will not sleep exactly the specified amount, to generate a sequence of bits which are somewhat random. They are not truly random, as if a person were able to force the algorithm to always execute until it is done then we would not have random bits. The other way to break the algorithm involves knowing absolutely everything about the system state and determining when a process would be woken up by the CPU scheduler. The bits generated by the algorithm will not cycle like the mathematical methods, and form a software-based source of highly pseudorandom values.
+\\
+The bits are not truly random, as if a person were able to force the algorithm to always execute, then we would not have random bits. The other way to break the algorithm involves knowing absolutely everything about the system state and determining when a process would be woken up by the CPU scheduler. The bits generated by the algorithm will not cycle like the mathematical methods, and so form a software-based source of highly pseudorandom values. If we could generate genuine random numbers using mathematical methods, then we would never consider using a function like this which can at best generate $10^5 \frac{\mathrm{bits}}{\mathrm{second}}$, which is 10,000 times slower than the mathematical methods. Unfortunately, we cannot create truly random sequences using deterministic functions, i.e. functions that will generate the same results given the same inputs.
 }
+\block{Testing}
+{
+In order to validate the randomness the bits generated by the algorithm I ran three statistical tests against data produced by the algorithm. These tests come from Donald E. Knuth's book \textit{The Art of Computer Programming --- Volume 2: Seminumerical Algorithms}.
+}
+
+\begin{subcolumns}
+\subcolumn{0.5}
+\block{$\chi^2$ Test}
+{
+The first test I ran the algorithm against is the $\chi^2$ test, where I generated 20 random bits with my algorithm and then summed them. This is analogous to flipping a coin 20 times. The probability distribution to compare to is the binomial distribution. With 20 degrees of freedom, we expect the $\chi^2$ value to be between $15.45$ and $23.83$, this value comes from Donald E. Knuth's book. The mean of the $\chi^2$ values my algorithm found over the span of tests done was $15.859$.\\
+\\
+\begin{minipage}{0.15\textwidth}
+The graph's x-axis shows the number of times the algorithm was used to generate 20 bits and sum them, we'll call this N. The y-axis shows ten different $\chi^2$ values calculated by taking ten different runs at N to show the spread in the results.
+\end{minipage}
+\begin{minipage}{0.165\textwidth}
+	\begin{tikzfigure}
+		\centering
+		\includegraphics{../img/chi-squared-dist.png}
+	\end{tikzfigure}
+\end{minipage}
+}
+\subcolumn{0.5}
+\block{Frequency Test}
+{
+The frequency test is designed to ensure that the data generated by the pesudorandom number generator is uniformly distributed. This algorithm should is expected to generate a uniform distribution of 0's and 1's.\\
+\\
+The below two graphs show the frequency of 1's and 0's with the red graph being the 1's and the green graph the 0's. Both of these graphs behave as expected, where with a lower number of bits generated we have a larger spread of values, but as the number of bits generated gets larger we see that the frequencies converge to 50\% for both 0 and 1. The mean of the frequency over all the tests is $49.92$\% for 1 and $50.08$\% for 0.
+\begin{center}
+\begin{minipage}{0.13\textwidth}
+	\begin{tikzfigure}
+		\includegraphics[scale=0.8]{../img/frequency-1.png}
+	\end{tikzfigure}
+\end{minipage}
+\begin{minipage}{0.13\textwidth}
+	\begin{tikzfigure}
+		\includegraphics[scale=0.8]{../img/frequency-0.png}
+	\end{tikzfigure}
+\end{minipage}
+\end{center}
+}
+\end{subcolumns}
 
 \column{0.3}
 	\block{Algorithm}
 	{
 \lstinputlisting[language=C]{demo.c}
 }
-\end{columns}
 
-\begin{columns}
-
-\column{0.35}
-\block{$\chi^2$ Test}
-{
-The first test I ran the algorithm against is the $\chi^2$ test, where I generated 20 random bits with my algorithm and then summed them. This is analogous to flipping a coin 20 times. The probability distribution to compare to is the binomial distribution. With 20 degrees of freedom, we expect the $\chi^2$ value to be between $15.45$ and $23.83$, this value comes from a table of expected chi-squared values as given by Donald E. Knuth in \textit{The Art of Computer Programming: Volume 2}. The mean of the $\chi^2$ values my algorithm found over the span of tests done was $15.859$.\\
-\\
-\begin{minipage}{0.175\textwidth}
-The graph's x-axis shows the number of times the algorithm was used to generate 20 bits and sum them, we'll call this N. The y-axis shows ten different $\chi^2$ values calculated by taking ten different runs at N to show the spread in the results.
-\end{minipage}
-\begin{minipage}{0.175\textwidth}
-	\begin{tikzfigure}
-		\includegraphics{../img/chi-squared-dist.png}
-	\end{tikzfigure}
-\end{minipage}
-}
-
-\column{0.3}
-\block{Frequency Test}
-{
-The frequency test is designed to ensure that the data generated by the pesudorandom number generator is uniformly distributed. This algorithm should is expected to generate a uniform distribution of 0's and 1's.\\
-\\
-The below two graphs show the frequency of 1's and 0's with the red graph being the 1's and the green graph the 0's. Both of these graphs behave as expected, where with a lower number of bits generated we have a larger spread of values, but as the number of bits generated gets larger we see that the frequencies converge to 50\% for both 0 and 1. The mean of the frequency over all the tests is $49.92$\% for 1 and $50.08$\% for 0.
-
-	\begin{tikzfigure}
-		\includegraphics{../img/frequency-1.png}
-		\includegraphics{../img/frequency-0.png}
-	\end{tikzfigure}
-
-}
-\column{0.35}
 \block{Permutations Test}
 {
-The permutations test checks for randomness by testing an algorithms ability to uniformly generate all the permutations of length t if we generate n random numbers and divide them into t partitions. I chose to make my partitions of size 3 and I test the algorithm's ability to uniformly generate all 8 possible 3-permutations of 0 and 1.
-\\
+The permutations test checks for randomness by testing an algorithms ability to uniformly generate all the permutations of length $t$ if we generate $n$ random numbers and divide them into $t$ partitions. There are $2^t$ possible t-permutations of 0 and 1, and so the probability that a given t-permutation will be one particular partition is $\frac{1}{2^t}$. We multiply this probability by the number of permutaitons generated $\frac{n}{t}$ to get the expected number of times each partition should appear for a given $n$. I chose to make my partitions of size 3 and I test the algorithm's ability to uniformly generate all 8 possible 3-permutations of 0 and 1.
 \begin{center}
 \begin{tabular}{ c c c c c c c c }
 	\centering
@@ -107,14 +137,17 @@ The permutations test checks for randomness by testing an algorithms ability to 
 \end{tabular}
 \end{center}
 
-\begin{minipage}{0.175\textwidth}
-The graph below shows the $\chi^2$ values for the permutation calculations for various values of n. The expected $\chi^2$, again from \textit{The Art of Computer Programming: Volume 2}, for 7 degrees of freedom is between $4.255$ and $9.037$. The mean of the $\chi^2$ values accross the total n tests is $6.941$ which is right in the 50th percentile. Thus the algorithm generates these permutations with near perfect uniformity.
+\begin{minipage}{0.125\textwidth}
+The graph below shows the $\chi^2$ values for the 3-permutation calculations for various values of $n$. The expected $\chi^2$, again from \textit{The Art of Computer Programming: Volume 2}, for 7 degrees of freedom is between $4.255$ and $9.037$. The mean of the $\chi^2$ values accross the total n tests is $6.941$ which is right in the 50th percentile. Thus the algorithm generates these permutations with excellent uniformity.
 \end{minipage}
 \begin{minipage}{0.175\textwidth}
 	\begin{tikzfigure}
+		\flushleft
 		\includegraphics{../img/perm-chi.png}
 	\end{tikzfigure}
 \end{minipage}
+\\
+\hfill
 }
 
 \end{columns}
